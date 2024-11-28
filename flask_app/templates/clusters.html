@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ cluster_type.capitalize() }} Cluster {{ cluster_number }}</title>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1>{{ cluster_type.capitalize() }} Cluster {{ cluster_number }}</h1>
+        {% if wordcloud_path %}
+        <img src="{{ wordcloud_path }}" alt="Word Cloud">
+        {% else %}
+        <p>No Word Cloud available for this cluster.</p>
+        {% endif %}
+        <a href="/">Back to Home</a>
+    </div>
+</body>
+</html>
