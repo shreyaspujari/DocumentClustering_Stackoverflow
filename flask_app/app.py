@@ -7,6 +7,8 @@ import os
 import re
 from html import unescape
 from urllib.parse import unquote
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 # Flask app initialization
 app = Flask(__name__)
@@ -74,6 +76,14 @@ try:
 except Exception as e:
     print(f"Error loading tag-based clusters: {e}")
     tag_clusters = None
+
+# Load the sentence transformer model
+# Load the saved model, embeddings, and data
+with open(f'{MODEL_DIR}/sbert_model.pkl', 'rb') as f:
+    sbert_model = pickle.load(f)
+
+with open(f'{MODEL_DIR}/sentence_embeddings.pkl', 'rb') as f:
+    sentence_embeddings = pickle.load(f)
 
 # Load processed dataset
 try:
@@ -143,26 +153,6 @@ def tag_questions(tag):
         max_cluster_id=max_cluster_id
     )
 
-
-# @app.route('/tag/<tag>')
-# def tag_questions(tag):
-#     if tag not in tag_clusters:
-#         return jsonify({"error": f"Tag '{tag}' not found"}), 404
-
-#     clusters = tag_clusters[tag]
-#     # Zip questions and their cluster IDs, cleaning the questions
-#     questions_and_clusters = list(
-#         zip([clean_text(q) for q in clusters['questions']], clusters['clusters'])
-#     )
-#     max_cluster_id = max(cluster_id for _, cluster_id in questions_and_clusters)
-
-#     return render_template(
-#         'tag_questions.html',
-#         tag=tag,
-#         questions_and_clusters=questions_and_clusters,
-#         max_cluster_id=max_cluster_id
-#     )
-
 @app.route('/question/<question>')
 def question_answer(question):
     # Decode the question from the URL
@@ -189,6 +179,30 @@ def question_answer(question):
 
     return render_template('question_answer.html', question=cleaned_question, answer=cleaned_answer)
 
+@app.route('/search', methods=['POST'])
+def search():
+    user_question = request.form.get('question')
+    cleaned_user_question = clean_text(user_question)
+
+    # Encode the user's question
+    user_question_embedding = sbert_model.encode([cleaned_user_question], convert_to_tensor=True)
+
+    # Compute cosine similarity
+    similarities = cosine_similarity(user_question_embedding.cpu().detach().numpy(), sentence_embeddings.cpu().detach().numpy())
+    most_similar_index = np.argmax(similarities)
+
+    # Retrieve the corresponding question, answer, and tag
+    best_match_question = final_data.iloc[most_similar_index]['QuestionText']
+    best_match_answer = final_data.iloc[most_similar_index]['AnswerText']
+    best_match_tag = final_data.iloc[most_similar_index]['Tag']
+
+    return render_template(
+        'search.html',
+        user_question=user_question,
+        predicted_answer=best_match_answer,
+        best_match_question=best_match_question,
+        best_match_tag=best_match_tag
+    )
 
 
 if __name__ == '__main__':
